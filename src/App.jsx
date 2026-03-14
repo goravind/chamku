@@ -722,9 +722,20 @@ function App() {
             ) : settingsTab === 'backup' ? (
               <BackupSettings
                 tasks={tasks}
-                onImport={(importedTasks) => {
+                familyMembers={familyMembers}
+                onImportCsv={(importedTasks) => {
                   setTasks(normalizeTasks(importedTasks));
                   localStorage.setItem(STORAGE_KEY, JSON.stringify(importedTasks));
+                }}
+                onImportJson={(importedTasks, importedMembers) => {
+                  if (importedTasks?.length) {
+                    setTasks(normalizeTasks(importedTasks));
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(importedTasks));
+                  }
+                  if (importedMembers?.length) {
+                    setFamilyMembers(importedMembers);
+                    saveProfile(importedMembers);
+                  }
                 }}
               />
             ) : (
@@ -1478,7 +1489,7 @@ function SubtaskItem({
   );
 }
 
-function BackupSettings({ tasks, onImport }) {
+function BackupSettings({ tasks, familyMembers, onImportCsv, onImportJson }) {
   const [githubRepo, setGithubRepo] = useState('');
   const [githubToken, setGithubToken] = useState('');
   const [syncStatus, setSyncStatus] = useState('');
@@ -1495,7 +1506,7 @@ function BackupSettings({ tasks, onImport }) {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e) => {
+  const handleImportCsv = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportError('');
@@ -1504,7 +1515,27 @@ function BackupSettings({ tasks, onImport }) {
       try {
         const imported = csvToTasks(ev.target.result);
         if (imported.length === 0) throw new Error('No valid data in CSV');
-        onImport(imported);
+        onImportCsv(imported);
+      } catch (err) {
+        setImportError(err.message || 'Import failed');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleImportJson = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        const tasks = data.tasks || (Array.isArray(data) ? data : []);
+        const members = data.familyMembers || [];
+        if (tasks.length === 0 && members.length === 0) throw new Error('No valid data in JSON');
+        onImportJson(tasks, members);
       } catch (err) {
         setImportError(err.message || 'Import failed');
       }
@@ -1540,7 +1571,7 @@ function BackupSettings({ tasks, onImport }) {
         return;
       }
       const imported = csvToTasks(csv);
-      onImport(imported);
+      onImportCsv(imported);
       setSyncStatus('Restored from GitHub');
     } catch (err) {
       setSyncStatus(`Error: ${err.message}`);
@@ -1563,9 +1594,29 @@ function BackupSettings({ tasks, onImport }) {
           <button type="button" className="backup-btn" onClick={handleExport}>
             Save to CSV
           </button>
+          <button
+            type="button"
+            className="backup-btn backup-btn-secondary"
+            onClick={() => {
+              const data = { tasks, familyMembers, exportedAt: new Date().toISOString() };
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `relocation-backup-${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            Export JSON
+          </button>
           <label className="backup-btn backup-btn-secondary">
             Import from CSV
-            <input type="file" accept=".csv" onChange={handleImport} hidden />
+            <input type="file" accept=".csv" onChange={handleImportCsv} hidden />
+          </label>
+          <label className="backup-btn backup-btn-secondary">
+            Import from JSON
+            <input type="file" accept=".json" onChange={handleImportJson} hidden />
           </label>
         </div>
         {importError && <p className="backup-error">{importError}</p>}

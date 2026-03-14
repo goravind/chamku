@@ -12,14 +12,14 @@ export const CATEGORIES = [
   { id: 'other', name: 'Other', icon: '📋', color: '#64748b' },
 ];
 
-// Default family members for assignment dropdown
-export const DEFAULT_FAMILY_MEMBERS = ['Gowri', 'Gayathri'];
+// Default family members for assignment dropdown (empty = user adds their own in Settings)
+export const DEFAULT_FAMILY_MEMBERS = [];
 
 export const INITIAL_TASKS = [
   // Visa & Immigration
-  { id: '1', categoryId: 'visa', title: 'Apply for OCI (Overseas Citizen of India)', completed: false, comments: [{ id: 'c-1', text: 'Started process in Jan 2025', createdAt: '2025-01-15T00:00:00.000Z' }], dueDate: '2025-03-31', assignedTo: 'Gowri', subtasks: [
-    { id: '1-1', title: 'Gather required documents', completed: true, comments: [{ id: 'c-1-1', text: 'Passport copy done. Need birth cert.', createdAt: '2025-01-20T00:00:00.000Z' }], dueDate: '', assignedTo: 'Gowri' },
-    { id: '1-2', title: 'Fill online application', completed: false, comments: [{ id: 'c-1-2', text: 'Portal opens next week', createdAt: '2025-02-01T00:00:00.000Z' }], dueDate: '2025-02-15', assignedTo: 'Gayathri' },
+  { id: '1', categoryId: 'visa', title: 'Apply for OCI (Overseas Citizen of India)', completed: false, comments: [{ id: 'c-1', text: 'Started process in Jan 2025', createdAt: '2025-01-15T00:00:00.000Z' }], dueDate: '2025-03-31', assignedTo: '', subtasks: [
+    { id: '1-1', title: 'Gather required documents', completed: true, comments: [{ id: 'c-1-1', text: 'Passport copy done. Need birth cert.', createdAt: '2025-01-20T00:00:00.000Z' }], dueDate: '', assignedTo: '' },
+    { id: '1-2', title: 'Fill online application', completed: false, comments: [{ id: 'c-1-2', text: 'Portal opens next week', createdAt: '2025-02-01T00:00:00.000Z' }], dueDate: '2025-02-15', assignedTo: '' },
     { id: '1-3', title: 'Schedule appointment at VFS/consulate', completed: false, comments: [], dueDate: '', assignedTo: '' },
   ], attachments: [] },
   { id: '2', categoryId: 'visa', title: 'Renew Indian passport if expiring soon', completed: false, notes: '', dueDate: '', assignedTo: '', subtasks: [], attachments: [] },

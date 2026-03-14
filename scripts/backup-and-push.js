@@ -28,11 +28,16 @@ function normalizeTask(t) {
 let tasks;
 if (existsSync(BACKUP_JSON)) {
   const raw = JSON.parse(readFileSync(BACKUP_JSON, 'utf8'));
-  tasks = raw.map(normalizeTask);
+  const taskList = raw.tasks || (Array.isArray(raw) ? raw : []);
+  tasks = taskList.map(normalizeTask);
   console.log('Loaded tasks from backup/relocation-tasks.json');
+  if (raw.familyMembers?.length) {
+    console.log('  People:', raw.familyMembers.join(', '));
+  }
 } else {
   tasks = INITIAL_TASKS.map(normalizeTask);
-  console.log('Using default INITIAL_TASKS (export from app to backup/relocation-tasks.json for your data)');
+  console.log('Using default INITIAL_TASKS');
+  console.log('  Tip: Export JSON from app (Settings → Backup), save as backup/relocation-tasks.json, then run npm run backup');
 }
 
 const csv = tasksToCsv(tasks);
