@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { CATEGORIES, INITIAL_TASKS, DEFAULT_FAMILY_MEMBERS } from './data/relocationData';
 import { supabase, hasSupabase } from './lib/supabase';
 import * as api from './lib/api';
@@ -11,14 +12,57 @@ const STORAGE_KEY = 'relocation-tasks';
 const STORAGE_PROFILE = 'relocation-profile';
 const STORAGE_FAMILY_PHOTO = 'relocation-family-photo';
 const STORAGE_CSV_BACKUP = 'relocation-csv-backup';
+const STORAGE_PROGRESS_NOTES = 'relocation-progress-notes';
 
-// Ensure task has full shape (subtasks, attachments, assignedTo)
+// Migrate legacy notes string to comments array (supports JSON or plain text)
+function notesToComments(notes) {
+  if (!notes || typeof notes !== 'string') return [];
+  const trimmed = notes.trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((c) => ({
+        id: c.id || `c-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        text: c.text || '',
+        createdAt: c.createdAt || new Date().toISOString(),
+      }));
+    }
+  } catch {
+    // Plain text: treat as single comment
+  }
+  return [{ id: `c-${Date.now()}`, text: trimmed, createdAt: new Date().toISOString() }];
+}
+
+// Ensure task has full shape (subtasks, attachments, assignedTo, comments)
 function normalizeTask(t) {
+  const comments = t.comments && Array.isArray(t.comments) && t.comments.length > 0
+    ? t.comments.map((c) => ({
+        id: c.id || `c-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        text: c.text || '',
+        createdAt: c.createdAt || new Date().toISOString(),
+      }))
+    : notesToComments(t.notes);
   return {
     ...t,
-    subtasks: t.subtasks || [],
+    subtasks: (t.subtasks || []).map(normalizeSubtask),
     attachments: t.attachments || [],
     assignedTo: t.assignedTo || '',
+    comments,
+  };
+}
+
+function normalizeSubtask(s) {
+  const comments = s.comments && Array.isArray(s.comments) && s.comments.length > 0
+    ? s.comments.map((c) => ({
+        id: c.id || `c-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        text: c.text || '',
+        createdAt: c.createdAt || new Date().toISOString(),
+      }))
+    : notesToComments(s.notes);
+  return {
+    ...s,
+    comments,
   };
 }
 
@@ -58,6 +102,7 @@ function App() {
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [settingsTab, setSettingsTab] = useState('people'); // 'people' | 'account' | 'backup' | 'photo'
   const [familyPhoto, setFamilyPhoto] = useState(() => localStorage.getItem(STORAGE_FAMILY_PHOTO) || '');
+  const [progressNotes, setProgressNotes] = useState(() => localStorage.getItem(STORAGE_PROGRESS_NOTES) || '');
 
   const loadTasks = useCallback(async () => {
     if (hasSupabase() && user) {
@@ -276,6 +321,55 @@ function App() {
     }
   };
 
+  const addComment = (taskId, subtaskId, text) => {
+    const trimmed = (text || '').trim();
+    if (!trimmed) return;
+    const comment = {
+      id: `c-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+    if (subtaskId) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                subtasks: t.subtasks.map((s) =>
+                  s.id === subtaskId
+                    ? { ...s, comments: [...(s.comments || []), comment] }
+                    : s
+                ),
+              }
+            : t
+        )
+      );
+      if (hasSupabase() && user) {
+        const task = tasks.find((t) => t.id === taskId);
+        const sub = task?.subtasks?.find((s) => s.id === subtaskId);
+        if (sub && typeof sub.id === 'string' && sub.id.length > 20) {
+          const updated = { ...sub, comments: [...(sub.comments || []), comment] };
+          api.updateSubtask(subtaskId, { notes: JSON.stringify(updated.comments) });
+        }
+      }
+    } else {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, comments: [...(t.comments || []), comment] }
+            : t
+        )
+      );
+      if (hasSupabase() && user) {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task && typeof task.id === 'string' && task.id.length > 20) {
+          const updated = { ...task, comments: [...(task.comments || []), comment] };
+          api.updateTask(taskId, { notes: JSON.stringify(updated.comments) });
+        }
+      }
+    }
+  };
+
   const deleteSubtask = (taskId, subtaskId) => {
     setTasks((prev) =>
       prev.map((t) =>
@@ -333,7 +427,7 @@ function App() {
       id: hasSupabase() && user ? `temp-${Date.now()}` : `${taskId}-${Date.now()}`,
       title: title.trim(),
       completed: false,
-      notes: '',
+      comments: [],
       dueDate: '',
       assignedTo: '',
     };
@@ -367,7 +461,7 @@ function App() {
         id: hasSupabase() && user ? `temp-${Date.now()}-${Math.random()}` : `${taskId}-${Date.now()}-${Math.random()}`,
         title: title.trim(),
         completed: false,
-        notes: '',
+        comments: [],
         dueDate: '',
         assignedTo: '',
       };
@@ -546,6 +640,19 @@ function App() {
         <p className="progress-text">
           {completedItems} of {totalItems} items complete ({progress}%)
         </p>
+        <div className="progress-notes">
+          <textarea
+            value={progressNotes}
+            onChange={(e) => {
+              const v = e.target.value;
+              setProgressNotes(v);
+              localStorage.setItem(STORAGE_PROGRESS_NOTES, v);
+            }}
+            placeholder="Add progress notes, updates, or comments..."
+            rows={2}
+            className="progress-notes-input"
+          />
+        </div>
       </header>
 
       {showSettings && (
@@ -877,6 +984,7 @@ function App() {
                 onToggleComplete={toggleComplete}
                 onUpdateTask={updateTask}
                 onUpdateSubtask={updateSubtask}
+                onAddComment={addComment}
                 onDeleteTask={deleteTask}
                 onDeleteSubtask={deleteSubtask}
                 onAddSubtask={addSubtask}
@@ -933,6 +1041,53 @@ function App() {
   );
 }
 
+function CommentsList({ comments }) {
+  if (!comments?.length) return null;
+  return (
+    <ul className="comments-list">
+      {comments.map((c) => (
+        <li key={c.id} className="comment-item">
+          <p className="comment-text">{c.text}</p>
+          <span className="comment-date">
+            {c.createdAt ? new Date(c.createdAt).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }) : ''}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function AddCommentInput({ onAdd, placeholder = 'Add a comment...' }) {
+  const [text, setText] = useState('');
+  const handleSubmit = (e) => {
+    e?.preventDefault?.();
+    const trimmed = text.trim();
+    if (trimmed) {
+      onAdd(trimmed);
+      setText('');
+    }
+  };
+  return (
+    <form className="add-comment-form" onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={placeholder}
+        className="add-comment-input"
+        aria-label="Add comment"
+      />
+      <button type="submit" className="add-comment-btn" disabled={!text.trim()}>
+        Add
+      </button>
+    </form>
+  );
+}
+
 function TaskItem({
   task,
   category,
@@ -947,6 +1102,7 @@ function TaskItem({
   onToggleComplete,
   onUpdateTask,
   onUpdateSubtask,
+  onAddComment,
   onDeleteTask,
   onDeleteSubtask,
   onAddSubtask,
@@ -980,7 +1136,6 @@ function TaskItem({
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (v) onUpdateTask(task.id, { title: v });
-                  setEditingId(null);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.target.blur();
@@ -1006,13 +1161,9 @@ function TaskItem({
                   ))}
                 </select>
               </div>
-              <label className="edit-label">Description</label>
-              <textarea
-                defaultValue={task.notes}
-                onBlur={(e) => onUpdateTask(task.id, { notes: e.target.value })}
-                placeholder="Add description, details, or notes..."
-                rows={3}
-              />
+              <label className="edit-label">Comments</label>
+              <CommentsList comments={task.comments || []} />
+              <AddCommentInput onAdd={(text) => onAddComment(task.id, null, text)} />
               <div className="attachments-edit">
                 <label className="attach-label">
                   📎 Attach file
@@ -1050,6 +1201,13 @@ function TaskItem({
                   </span>
                 ))}
               </div>
+              <button
+                type="button"
+                className="edit-done-btn"
+                onClick={() => setEditingId(null)}
+              >
+                Done
+              </button>
             </div>
           ) : (
             <>
@@ -1086,16 +1244,10 @@ function TaskItem({
                   <span className="task-attachments">📎 {task.attachments.length}</span>
                 )}
               </div>
-              <div
-                className={`task-description ${!task.notes ? 'empty' : ''}`}
-                onClick={() => !task.notes && setEditingId(task.id)}
-              >
-                <span className="description-label">Description:</span>
-                {task.notes ? (
-                  <p className="description-text">{task.notes}</p>
-                ) : (
-                  <p className="description-placeholder">Add description...</p>
-                )}
+              <div className="task-comments">
+                <span className="comments-label">Comments</span>
+                <CommentsList comments={task.comments || []} />
+                <AddCommentInput onAdd={(text) => onAddComment(task.id, null, text)} />
               </div>
             </>
           )}
@@ -1139,6 +1291,7 @@ function TaskItem({
               isEditing={editingSubtaskId === sub.id}
               onToggleComplete={() => onToggleComplete(task.id, sub.id)}
               onUpdate={(updates) => onUpdateSubtask(task.id, sub.id, updates)}
+              onAddComment={(text) => onAddComment(task.id, sub.id, text)}
               onDelete={() => onDeleteSubtask(task.id, sub.id)}
               onStartEdit={() => setEditingSubtaskId(sub.id)}
               onStopEdit={() => setEditingSubtaskId(null)}
@@ -1183,6 +1336,7 @@ function SubtaskItem({
   isEditing,
   onToggleComplete,
   onUpdate,
+  onAddComment,
   onDelete,
   onStartEdit,
   onStopEdit,
@@ -1207,7 +1361,6 @@ function SubtaskItem({
               onBlur={(e) => {
                 const v = e.target.value.trim();
                 if (v) onUpdate({ title: v });
-                onStopEdit();
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.target.blur();
@@ -1233,13 +1386,9 @@ function SubtaskItem({
                 ))}
               </select>
             </div>
-            <label className="edit-label">Description</label>
-            <textarea
-              defaultValue={subtask.notes}
-              onBlur={(e) => onUpdate({ notes: e.target.value })}
-              placeholder="Add description..."
-              rows={2}
-            />
+            <label className="edit-label">Comments</label>
+            <CommentsList comments={subtask.comments || []} />
+            <AddCommentInput onAdd={(text) => onAddComment(text)} placeholder="Add a comment..." />
             <div className="attachments-edit">
               <label className="attach-label">
                 📎 Attach
@@ -1275,6 +1424,13 @@ function SubtaskItem({
                 </span>
               ))}
             </div>
+            <button
+              type="button"
+              className="edit-done-btn"
+              onClick={onStopEdit}
+            >
+              Done
+            </button>
           </div>
         ) : (
           <>
@@ -1303,16 +1459,10 @@ function SubtaskItem({
                 <span className="task-attachments">📎 {subtask.attachments.length}</span>
               )}
             </div>
-            <div
-              className={`task-description subtask-description ${!subtask.notes ? 'empty' : ''}`}
-              onClick={() => !subtask.notes && onStartEdit()}
-            >
-              <span className="description-label">Description:</span>
-              {subtask.notes ? (
-                <p className="description-text">{subtask.notes}</p>
-              ) : (
-                <p className="description-placeholder">Add description...</p>
-              )}
+            <div className="task-comments subtask-comments">
+              <span className="comments-label">Comments</span>
+              <CommentsList comments={subtask.comments || []} />
+              <AddCommentInput onAdd={(text) => onAddComment(text)} placeholder="Add a comment..." />
             </div>
           </>
         )}
@@ -1455,6 +1605,8 @@ function BackupSettings({ tasks, onImport }) {
 }
 
 function FamilyPhotoSettings({ familyPhoto, onPhotoChange }) {
+  const fileInputRef = useRef(null);
+
   const handleFileChange = (e) => {
     const file = e.target?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
@@ -1466,31 +1618,83 @@ function FamilyPhotoSettings({ familyPhoto, onPhotoChange }) {
 
   const handleRemove = () => onPhotoChange('');
 
+  // File input in portal at body level - avoids modal stacking/click issues
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      onChange={handleFileChange}
+      id="family-photo-file-input"
+      style={{
+        position: 'fixed',
+        left: -9999,
+        top: 0,
+        width: 1,
+        height: 1,
+        opacity: 0,
+      }}
+      aria-hidden
+    />
+  );
+
   return (
     <div className="family-photo-settings">
+      {createPortal(fileInput, document.body)}
       <h3>Family Photo</h3>
       <p className="modal-hint">
         Add a family photo to show in the header. It&apos;s stored locally on this device.
       </p>
       {familyPhoto ? (
-        <div className="family-photo-preview">
+        <div
+          className="family-photo-preview"
+          onDrop={(e) => {
+            e.preventDefault();
+            const file = e.dataTransfer?.files?.[0];
+            if (file?.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onload = () => onPhotoChange(reader.result);
+              reader.readAsDataURL(file);
+            }
+          }}
+          onDragOver={(e) => e.preventDefault()}
+        >
           <img src={familyPhoto} alt="Family" />
           <div className="family-photo-actions">
-            <label className="family-photo-label-btn">
+            <button
+              type="button"
+              className="family-photo-label-btn"
+              onClick={() => fileInputRef.current?.click()}
+            >
               Change photo
-              <input type="file" accept="image/*" onChange={handleFileChange} hidden />
-            </label>
+            </button>
             <button type="button" className="remove-btn" onClick={handleRemove}>
               Remove
             </button>
           </div>
         </div>
       ) : (
-        <div className="family-photo-upload">
-          <label className="family-photo-label-btn">
+        <div
+          className="family-photo-upload"
+          onDrop={(e) => {
+            e.preventDefault();
+            const file = e.dataTransfer?.files?.[0];
+            if (file?.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onload = () => onPhotoChange(reader.result);
+              reader.readAsDataURL(file);
+            }
+          }}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            className="family-photo-label-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
             Choose a photo
-            <input type="file" accept="image/*" onChange={handleFileChange} hidden />
-          </label>
+          </button>
+          <p className="family-photo-drop-hint">or drag and drop an image here</p>
         </div>
       )}
     </div>

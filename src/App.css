@@ -190,6 +190,34 @@
   font-weight: 500;
 }
 
+.progress-notes {
+  margin-top: 1rem;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.progress-notes-input {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  border: 2px solid var(--teal-light);
+  border-radius: 10px;
+  resize: vertical;
+  min-height: 2.5rem;
+  font-family: inherit;
+  color: #334155;
+}
+
+.progress-notes-input::placeholder {
+  color: #94a3b8;
+}
+
+.progress-notes-input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
 .main {
   flex: 1;
   display: flex;
@@ -672,7 +700,7 @@
   color: var(--teal);
 }
 
-.task-description {
+.task-comments {
   margin-top: 0.6rem;
   padding: 0.6rem 0.9rem;
   background: linear-gradient(135deg, #f8fafc, #f1f5f9);
@@ -680,26 +708,39 @@
   border-left: 4px solid var(--teal-light);
 }
 
-.task-description.empty {
-  cursor: pointer;
-  border-left-color: #cbd5e1;
+.subtask-comments {
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.75rem;
 }
 
-.task-description.empty:hover {
-  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
-}
-
-.description-label {
+.comments-label {
   display: block;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--teal);
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.4rem;
 }
 
-.description-text {
+.comments-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.comment-item {
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.comment-item:last-of-type {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.comment-text {
   margin: 0;
   font-size: 0.9rem;
   color: #334155;
@@ -708,16 +749,52 @@
   word-break: break-word;
 }
 
-.description-placeholder {
-  margin: 0;
-  font-size: 0.85rem;
+.comment-date {
+  display: block;
+  font-size: 0.7rem;
   color: #94a3b8;
-  font-style: italic;
+  margin-top: 0.2rem;
 }
 
-.subtask-description {
-  margin-top: 0.4rem;
+.add-comment-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.add-comment-input {
+  flex: 1;
   padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  border: 2px solid var(--teal-light);
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.add-comment-input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
+.add-comment-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  background: var(--teal);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-comment-btn:hover:not(:disabled) {
+  background: #0f766e;
+}
+
+.add-comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .subtask-description .description-text,
@@ -760,6 +837,24 @@
 .edit-form textarea {
   resize: vertical;
   min-height: 60px;
+}
+
+.edit-done-btn {
+  align-self: flex-start;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--teal-light);
+  border: 2px solid var(--teal);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-done-btn:hover {
+  background: var(--teal);
+  color: white;
 }
 
 .edit-row {
@@ -1169,7 +1264,25 @@
 }
 
 .family-photo-upload {
-  padding: 1.5rem 0;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  border: 2px dashed var(--teal-light);
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.04);
+}
+
+.family-photo-upload:hover {
+  border-color: var(--teal);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.family-photo-drop-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
 }
 
 .people-settings {

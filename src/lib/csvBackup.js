@@ -27,6 +27,7 @@ export function tasksToCsv(tasks) {
   const rows = [headers.join(',')];
 
   for (const t of tasks) {
+    const notesVal = t.comments?.length ? JSON.stringify(t.comments) : (t.notes || '');
     rows.push(
       [
         'task',
@@ -35,7 +36,7 @@ export function tasksToCsv(tasks) {
         t.categoryId,
         t.title,
         t.completed ? '1' : '0',
-        t.notes || '',
+        notesVal,
         t.dueDate || '',
         t.assignedTo || '',
       ]
@@ -43,6 +44,7 @@ export function tasksToCsv(tasks) {
         .join(',')
     );
     for (const s of t.subtasks || []) {
+      const subNotesVal = s.comments?.length ? JSON.stringify(s.comments) : (s.notes || '');
       rows.push(
         [
           'subtask',
@@ -51,7 +53,7 @@ export function tasksToCsv(tasks) {
           '',
           s.title,
           s.completed ? '1' : '0',
-          s.notes || '',
+          subNotesVal,
           s.dueDate || '',
           s.assignedTo || '',
         ]

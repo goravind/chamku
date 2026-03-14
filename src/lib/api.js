@@ -1,6 +1,6 @@
 import { supabase, hasSupabase } from './supabase';
 
-// Normalize task from DB to app format
+// Normalize task from DB to app format (notes may be JSON comments)
 function dbTaskToApp(dbTask, subtasks = [], attachments = []) {
   return {
     id: dbTask.id,
@@ -30,11 +30,14 @@ function dbTaskToApp(dbTask, subtasks = [], attachments = []) {
 
 // Convert app task to DB format
 function appTaskToDb(task) {
+  const notes = task.comments?.length
+    ? JSON.stringify(task.comments)
+    : (task.notes || '');
   return {
     category_id: task.categoryId,
     title: task.title,
     completed: task.completed,
-    notes: task.notes || '',
+    notes,
     due_date: task.dueDate || null,
     assigned_to: task.assignedTo || '',
   };
@@ -150,13 +153,16 @@ export async function deleteAllTasks(userId) {
 export async function createSubtask(taskId, subtask) {
   if (!hasSupabase()) return null;
 
+  const notesVal = subtask.comments?.length
+    ? JSON.stringify(subtask.comments)
+    : (subtask.notes || '');
   const { data, error } = await supabase
     .from('subtasks')
     .insert({
       task_id: taskId,
       title: subtask.title,
       completed: subtask.completed ?? false,
-      notes: subtask.notes || '',
+      notes: notesVal,
       due_date: subtask.dueDate || null,
       assigned_to: subtask.assignedTo || '',
     })
