@@ -1,7 +1,7 @@
 type,id,parent_id,category_id,title,completed,comments,due_date,assigned_to
-task,1,,visa,Apply for OCI (Overseas Citizen of India),0,"[{""id"":""c-1"",""text"":""Started process in Jan 2025"",""createdAt"":""2025-01-15T00:00:00.000Z""}]",2025-03-31,Me
-subtask,1-1,1,,Gather required documents,1,"[{""id"":""c-1-1"",""text"":""Passport copy done. Need birth cert."",""createdAt"":""2025-01-20T00:00:00.000Z""}]",,Me
-subtask,1-2,1,,Fill online application,0,"[{""id"":""c-1-2"",""text"":""Portal opens next week"",""createdAt"":""2025-02-01T00:00:00.000Z""}]",2025-02-15,Spouse
+task,1,,visa,Apply for OCI (Overseas Citizen of India),0,"[{""id"":""c-1"",""text"":""Started process in Jan 2025"",""createdAt"":""2025-01-15T00:00:00.000Z""}]",2025-03-31,Gowri
+subtask,1-1,1,,Gather required documents,1,"[{""id"":""c-1-1"",""text"":""Passport copy done. Need birth cert."",""createdAt"":""2025-01-20T00:00:00.000Z""}]",,Gowri
+subtask,1-2,1,,Fill online application,0,"[{""id"":""c-1-2"",""text"":""Portal opens next week"",""createdAt"":""2025-02-01T00:00:00.000Z""}]",2025-02-15,Gayathri
 subtask,1-3,1,,Schedule appointment at VFS/consulate,0,,,
 task,2,,visa,Renew Indian passport if expiring soon,0,,,
 task,3,,visa,Get visa/status for non-Indian family members,0,,,
