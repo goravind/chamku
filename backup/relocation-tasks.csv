@@ -1,4 +1,4 @@
-type,id,parent_id,category_id,title,completed,notes,due_date,assigned_to
+type,id,parent_id,category_id,title,completed,comments,due_date,assigned_to
 task,1,,visa,Apply for OCI (Overseas Citizen of India),0,,,
 subtask,1-1,1,,Gather required documents,0,,,
 subtask,1-2,1,,Fill online application,0,,,

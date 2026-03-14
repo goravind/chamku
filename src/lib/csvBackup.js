@@ -1,6 +1,7 @@
 /**
  * CSV backup format: one row per task, one row per subtask
- * Columns: type, id, parent_id, category_id, title, completed, notes, due_date, assigned_to
+ * Columns: type, id, parent_id, category_id, title, completed, comments, due_date, assigned_to
+ * comments: JSON array of {id, text, createdAt} or legacy plain text
  */
 
 function escapeCsv(val) {
@@ -20,7 +21,7 @@ export function tasksToCsv(tasks) {
     'category_id',
     'title',
     'completed',
-    'notes',
+    'comments',
     'due_date',
     'assigned_to',
   ];
@@ -108,7 +109,8 @@ export function csvToTasks(csvText) {
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
-    const [type, id, parentId, categoryId, title, completed, notes, dueDate, assignedTo] =
+    // comments column (was "notes" in older exports - same position)
+    const [type, id, parentId, categoryId, title, completed, commentsOrNotes, dueDate, assignedTo] =
       cols;
 
     if (type === 'task') {
@@ -117,7 +119,7 @@ export function csvToTasks(csvText) {
         categoryId: categoryId || 'other',
         title: title || 'Untitled',
         completed: completed === '1',
-        notes: notes || '',
+        notes: commentsOrNotes || '',
         dueDate: dueDate || '',
         assignedTo: assignedTo || '',
         subtasks: [],
@@ -132,7 +134,7 @@ export function csvToTasks(csvText) {
           id: id || `sub-${Date.now()}-${i}`,
           title: title || 'Untitled',
           completed: completed === '1',
-          notes: notes || '',
+          notes: commentsOrNotes || '',
           dueDate: dueDate || '',
           assignedTo: assignedTo || '',
         });
