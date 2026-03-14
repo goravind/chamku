@@ -20,15 +20,16 @@ export function tasksToCsv(tasks) {
     'parent_id',
     'category_id',
     'title',
+    'assigned_to',
     'completed',
     'comments',
     'due_date',
-    'assigned_to',
   ];
   const rows = [headers.join(',')];
 
   for (const t of tasks) {
     const notesVal = t.comments?.length ? JSON.stringify(t.comments) : (t.notes || '');
+    const assignee = String(t.assignedTo ?? '').trim();
     rows.push(
       [
         'task',
@@ -36,16 +37,17 @@ export function tasksToCsv(tasks) {
         '',
         t.categoryId,
         t.title,
+        assignee,
         t.completed ? '1' : '0',
         notesVal,
         t.dueDate || '',
-        t.assignedTo || '',
       ]
         .map(escapeCsv)
         .join(',')
     );
     for (const s of t.subtasks || []) {
       const subNotesVal = s.comments?.length ? JSON.stringify(s.comments) : (s.notes || '');
+      const subAssignee = String(s.assignedTo ?? '').trim();
       rows.push(
         [
           'subtask',
@@ -53,10 +55,10 @@ export function tasksToCsv(tasks) {
           t.id,
           '',
           s.title,
+          subAssignee,
           s.completed ? '1' : '0',
           subNotesVal,
           s.dueDate || '',
-          s.assignedTo || '',
         ]
           .map(escapeCsv)
           .join(',')
@@ -104,14 +106,23 @@ export function csvToTasks(csvText) {
   const lines = csvText.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
+  const header = parseCsvLine(lines[0]);
+  const assignedToIdx = header.indexOf('assigned_to');
+  const isNewFormat = assignedToIdx === 5; // assigned_to after title
+
   const tasks = [];
   const taskMap = new Map();
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
-    // comments column (was "notes" in older exports - same position)
-    const [type, id, parentId, categoryId, title, completed, commentsOrNotes, dueDate, assignedTo] =
-      cols;
+    let type, id, parentId, categoryId, title, assignedTo, completed, commentsOrNotes, dueDate;
+    if (isNewFormat) {
+      [type, id, parentId, categoryId, title, assignedTo, completed, commentsOrNotes, dueDate] = cols;
+    } else {
+      // Legacy: type, id, parent_id, category_id, title, completed, comments, due_date, assigned_to
+      [type, id, parentId, categoryId, title, completed, commentsOrNotes, dueDate, assignedTo] = cols;
+    }
+    assignedTo = assignedTo || '';
 
     if (type === 'task') {
       const task = {
